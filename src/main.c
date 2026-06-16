@@ -39,6 +39,7 @@ typedef struct {
 // definición de la cola
 static QueueHandle_t sensor_queue = NULL;
 
+// definción de la unidad de adc
 static adc_oneshot_unit_handle_t adc1_handle;
 
 void init_adcs(){
@@ -58,7 +59,7 @@ void init_adcs(){
 }
 
 // ==========================================
-// DHT11 Temperature & Humidity
+// Lee la tempratura y humedad del aire para luego mandarla al 
 // ==========================================
 void getTemp(void *pvParameters){
     int16_t temp = 0;
@@ -82,7 +83,7 @@ void getTemp(void *pvParameters){
     }
 }
 
-
+// Lee el dato del LDR 10 veces hace la media y lo manda a la cola
 void getLux(void *pvParameters){
     int temp = 0, tmp;
     sensor_data_t packet;
@@ -106,7 +107,7 @@ void getLux(void *pvParameters){
     }
 }
 
-
+// lee el dato del sensor de humedad de suelo 10 veces para hacer la media y lo manda a la cola
 void getHumi(void *pvParameters){
     int humi = 0, tmp;
     sensor_data_t packet;
@@ -130,7 +131,9 @@ void getHumi(void *pvParameters){
     }
 }
 
-
+//
+// FUNCIÓN A REMPLAZAR POR LA DE COMUNICACIÓN
+//
 void printDisplayTask(void *pvParameters){
     sensor_data_t received_packet;
     

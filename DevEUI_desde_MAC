@@ -1,0 +1,21 @@
+#include <Arduino.h>
+#include <esp_mac.h> // Librería oficial de ESP32 para leer la MAC
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  uint8_t mac[6];
+  // Leemos la MAC de fábrica del módulo Wi-Fi/Bluetooth
+  esp_read_mac(mac, ESP_MAC_WIFI_STA); 
+
+  Serial.println("--- DATOS PARA CHIRPSTACK ---");
+  
+  // Formateamos la MAC de 6 bytes a un DevEUI de 8 bytes (insertando FFFF o FFFE en medio)
+  Serial.print("Tu DevEUI real es: ");
+  Serial.printf("%02X%02X%02XFF%02X%02X%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+void loop() {
+  // Nada por aquí
+}

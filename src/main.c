@@ -58,9 +58,7 @@ void init_adcs(){
     adc_oneshot_config_channel(adc1_handle, ADC_LUX, &channel_config);
 }
 
-// ==========================================
-// Lee la tempratura y humedad del aire para luego mandarla al 
-// ==========================================
+// Lee la tempratura y humedad del aire para luego mandarla a la cola
 void getTemp(void *pvParameters){
     int16_t temp = 0;
     int16_t hum = 0;

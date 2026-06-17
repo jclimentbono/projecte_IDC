@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/CMakeFiles/bootloader
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/CMakeFiles/bootloader.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/CMakeFiles/bootloader-complete.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

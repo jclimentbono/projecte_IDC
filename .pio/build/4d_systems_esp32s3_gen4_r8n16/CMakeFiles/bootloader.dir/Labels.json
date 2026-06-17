@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/CMakeFiles/bootloader"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/CMakeFiles/bootloader.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/CMakeFiles/bootloader-complete.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
+		},
+		{
+			"file" : "/home/edmond/esp32/BlinkLedESP32/.pio/build/4d_systems_esp32s3_gen4_r8n16/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"bootloader"
+		],
+		"name" : "bootloader"
+	}
+}

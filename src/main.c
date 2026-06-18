@@ -1,47 +1,51 @@
 #include <stdio.h>
+#include <string.h>
 #include "driver/gpio.h"
+#include "driver/uart.h"
 #include "esp_adc/adc_oneshot.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h" 
-#include "dht.h"
+#include "esp_log.h"
 
+static const char *TAG = "IDC";
+// Config de lorawan
+#define DEV_EUI  "70B3D57ED007815F"
+#define JOIN_EUI "0000000000000000"
+#define APP_KEY  "FCAB082D723133F2CD21AD101FC189F3"
 
-// Ver que pin corresponde a que 
+//Config de pines
+#define LORA_TX_PIN      18 // Conectado al RX del E5
+#define LORA_RX_PIN      17 // Conectado al TX del E5
+#define UART_NUM         UART_NUM_1
+
 #define ADC_SENSORS_UNIT ADC_UNIT_1 
 #define ADC_LUX ADC_CHANNEL_3 
 #define ADC_HUMI ADC_CHANNEL_1 
-#define DHT_GPIO_PIN GPIO_NUM_16
 
-// Datos de los pins  Analog Digital Convertet
-#define ATTEN ADC_ATTEN_DB_11
+#define ATTEN ADC_ATTEN_DB_12
 #define BITWIDTH ADC_BITWIDTH_12
 
-//calibración para los sensor
 #define MAX_ADC_VALUE 4095.0
-#define HUM_SENSOR_WET 100
-#define INTERVAL_DATA_COLLECTION (1000*60*58) // en ms
+#define INTERVAL_DATA_COLLECTION 15000 // Tiempo de envío en ms
 
-// Enum sirve para identificar de que sensor viene el dato
+//Estructuras de cola
 typedef enum {
-    SENSOR_DHT11,
     SENSOR_LUX,
     SENSOR_SOIL
 } sensor_type_t;
 
-// Strcut que permite  guardar los datos enviados a la cola
 typedef struct {
     sensor_type_t type;
-    float value1; // Valores singulares y la temeperatura del aire con  DHT11
-    float value2; // Humedad del aire con DHT11
+    float value1; 
 } sensor_data_t;
 
-// definición de la cola
-static QueueHandle_t sensor_queue = NULL;
+static QueueHandle_t display_queue = NULL;
+static QueueHandle_t lora_queue = NULL;
 
-// definción de la unidad de adc
 static adc_oneshot_unit_handle_t adc1_handle;
 
+//Inicialización de ADC
 void init_adcs(){
     adc_oneshot_unit_init_cfg_t init_config = {
         .unit_id = ADC_SENSORS_UNIT,
@@ -58,37 +62,11 @@ void init_adcs(){
     adc_oneshot_config_channel(adc1_handle, ADC_LUX, &channel_config);
 }
 
-// ==========================================
-// Lee la tempratura y humedad del aire para luego mandarla al 
-// ==========================================
-void getTemp(void *pvParameters){
-    int16_t temp = 0;
-    int16_t hum = 0;
-    sensor_data_t packet;
-    packet.type = SENSOR_DHT11;
-
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
-    while(1){    
-        esp_err_t res = dht_read_data(DHT_TYPE_DHT11, DHT_GPIO_PIN, &hum, &temp);
-        
-        if (res == ESP_OK) {
-            packet.value1 = (float)temp / 10.0;
-            packet.value2 = (float)hum / 10.0;
-            
-            // Send structure packet to the back of the queue (wait up to 100ms if queue is full)
-            xQueueSend(sensor_queue, &packet, pdMS_TO_TICKS(100));
-        }
-        vTaskDelay(pdMS_TO_TICKS(INTERVAL_DATA_COLLECTION+1000));
-    }
-}
-
-// Lee el dato del LDR 10 veces hace la media y lo manda a la cola
+//Sensores
 void getLux(void *pvParameters){
     int temp = 0, tmp;
     sensor_data_t packet;
     packet.type = SENSOR_LUX;
-    packet.value2 = 0; // Unused
 
     while(1){    
         for(int i = 0; i < 10; i++){
@@ -96,23 +74,20 @@ void getLux(void *pvParameters){
             temp += tmp;
         }
         temp /= 10;
-        
         packet.value1 = ((float)temp / MAX_ADC_VALUE) * 100.0;
         
-        // Send packet to the queue
-        xQueueSend(sensor_queue, &packet, pdMS_TO_TICKS(100));
+        xQueueSend(display_queue, &packet, pdMS_TO_TICKS(100));
+        xQueueSend(lora_queue, &packet, pdMS_TO_TICKS(100));
         
         temp = 0;
         vTaskDelay(pdMS_TO_TICKS(INTERVAL_DATA_COLLECTION));
     }
 }
 
-// lee el dato del sensor de humedad de suelo 10 veces para hacer la media y lo manda a la cola
 void getHumi(void *pvParameters){
     int humi = 0, tmp;
     sensor_data_t packet;
     packet.type = SENSOR_SOIL;
-    packet.value2 = 0; // Unused
 
     while(1){
         for(int i = 0; i < 10; i++){
@@ -120,46 +95,27 @@ void getHumi(void *pvParameters){
             humi += tmp;
         }
         humi /= 10;
-        
         packet.value1 = ((float)humi / MAX_ADC_VALUE) * 100.0;
         
-       
-        xQueueSend(sensor_queue, &packet, pdMS_TO_TICKS(100));
+        xQueueSend(display_queue, &packet, pdMS_TO_TICKS(100));
+        xQueueSend(lora_queue, &packet, pdMS_TO_TICKS(100));
         
         humi = 0;
-        vTaskDelay(pdMS_TO_TICKS(INTERVAL_DATA_COLLECTION+500));
+        vTaskDelay(pdMS_TO_TICKS(INTERVAL_DATA_COLLECTION + 500)); // Pequeño desfase
     }
 }
 
-//
-// FUNCIÓN A REMPLAZAR POR LA DE COMUNICACIÓN
-//
+//Print por pantalla
 void printDisplayTask(void *pvParameters){
     sensor_data_t received_packet;
-    
 
     while(1){
-        // portMAX_DELAY blocks this task indefinitely until an item arrives in the queue.
-        // This consumes 0% CPU resources while sleeping/waiting!
-        if (xQueueReceive(sensor_queue, &received_packet, portMAX_DELAY) == pdTRUE) {
-            
+        if (xQueueReceive(display_queue, &received_packet, portMAX_DELAY) == pdTRUE) {
             printf("---------------------------------------\n");
-            switch(received_packet.type) {
-                case SENSOR_DHT11:
-                    printf("[RECEIVER] -> Datos de Aire:\n");
-                    printf("   Temperatura: %.1f °C\n", received_packet.value1);
-                    printf("   Humedad:     %.1f %%\n", received_packet.value2);
-                    break;
-                    
-                case SENSOR_LUX:
-                    printf("[RECEIVER] -> Datos de Lumetría:\n");
-                    printf("   Intensidad de Luz: %.2f %%\n", received_packet.value1);
-                    break;
-                    
-                case SENSOR_SOIL:
-                    printf("[RECEIVER] -> Datos de Humedad de Suelo:\n");
-                    printf("   Humedad Suelo:     %.2f %%\n", received_packet.value1);
-                    break;
+            if (received_packet.type == SENSOR_LUX) {
+                printf("[PANTALLA] -> Intensidad de Luz: %.2f %%\n", received_packet.value1);
+            } else if (received_packet.type == SENSOR_SOIL) {
+                printf("[PANTALLA] -> Humedad Suelo:     %.2f %%\n", received_packet.value1);
             }
             printf("---------------------------------------\n");
             fflush(stdout);
@@ -167,25 +123,103 @@ void printDisplayTask(void *pvParameters){
     }
 }
 
+//Lorawan
+void loraWanTask(void *pvParameters){
+    //Serial a 9600
+    uart_config_t uart_config = {
+        .baud_rate = 9600,
+        .data_bits = UART_DATA_8_BITS,
+        .parity    = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+    uart_driver_install(UART_NUM, 1024, 0, 0, NULL, 0);
+    uart_param_config(UART_NUM, &uart_config);
+    uart_set_pin(UART_NUM, LORA_TX_PIN, LORA_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    ESP_LOGI(TAG, "Configurando módulo LoRa E5...");
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    char cmd[128];
+
+    // Comandos AT inicialización
+    uart_write_bytes(UART_NUM, "AT+MODE=LWOTAA\r\n", 16);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    uart_write_bytes(UART_NUM, "AT+DR=EU868\r\n", 13);
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    snprintf(cmd, sizeof(cmd), "AT+ID=DevEui,\"%s\"\r\n", DEV_EUI);
+    uart_write_bytes(UART_NUM, cmd, strlen(cmd));
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    snprintf(cmd, sizeof(cmd), "AT+ID=AppEui,\"%s\"\r\n", JOIN_EUI);
+    uart_write_bytes(UART_NUM, cmd, strlen(cmd));
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    snprintf(cmd, sizeof(cmd), "AT+KEY=APPKEY,\"%s\"\r\n", APP_KEY);
+    uart_write_bytes(UART_NUM, cmd, strlen(cmd));
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    ESP_LOGI(TAG, "Solicitando conexión a TTN (AT+JOIN)...");
+    uart_write_bytes(UART_NUM, "AT+JOIN\r\n", 9);
+    
+    vTaskDelay(pdMS_TO_TICKS(12000));
+
+    sensor_data_t received_packet;
+    float last_lux = 0.0, last_soil = 0.0;
+    int received_count = 0; 
+
+    //Bucle principal
+    while(1){
+        if (xQueueReceive(lora_queue, &received_packet, portMAX_DELAY) == pdTRUE) {
+            
+            if (received_packet.type == SENSOR_LUX) {
+                last_lux = received_packet.value1;
+                received_count++;
+            } else if (received_packet.type == SENSOR_SOIL) {
+                last_soil = received_packet.value1;
+                received_count++;
+            }
+
+            // Cuando tenemos el reporte de los 2 sensores, creamos y enviamos el payload
+            if (received_count >= 2) {
+                // Formato con comillas: AT+CMSGHEX="XXXX"
+                snprintf(cmd, sizeof(cmd), "AT+CMSGHEX=\"%04X%04X\"\r\n", 
+                         (int)(last_lux * 100) & 0xFFFF,
+                         (int)(last_soil * 100) & 0xFFFF);
+                         
+                ESP_LOGI(TAG, "Enviando datos a TTN -> %04X%04X", 
+                         (int)(last_lux * 100) & 0xFFFF, (int)(last_soil * 100) & 0xFFFF);
+                         
+                uart_write_bytes(UART_NUM, cmd, strlen(cmd));
+                
+                received_count = 0; 
+            }
+        }
+    }
+}
+
+
 void app_main(void)
 {
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    fflush(stdout);
+
     init_adcs();
     
-    // Create a queue capable of storing 10 "sensor_data_t" structures
-    sensor_queue = xQueueCreate(10, sizeof(sensor_data_t));
+    display_queue = xQueueCreate(10, sizeof(sensor_data_t));
+    lora_queue = xQueueCreate(10, sizeof(sensor_data_t));
     
-    if (sensor_queue != NULL) {
-        // tarea con mayor prioridad
-        // a remplazar por la tarea de LoraWan o MQTT o HTTP
+    if (display_queue != NULL && lora_queue != NULL) {
         xTaskCreate(printDisplayTask, "central_print", 4096, NULL, 5, NULL);
+        xTaskCreate(loraWanTask, "lorawan_task", 4096, NULL, 5, NULL);
         
-        // Crea las tareas con la menor prioridad que son los sensores 
-        // recogiendo información 
-        xTaskCreate(getTemp, "get_temp", 4096, NULL, 1, NULL);
         xTaskCreate(getLux,  "get_lux",  4096, NULL, 1, NULL);
         xTaskCreate(getHumi, "get_humi", 4096, NULL, 1, NULL);
     } else {
-        printf("No se pudo crear la cola!\n");
+        printf("¡No se pudieron crear las colas!\n");
         fflush(stdout);
     }
 }
